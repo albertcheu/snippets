@@ -1,16 +1,18 @@
 /*
   Implements linear-time construction of (generalized) suffix tree
-  Sample input: "abcd$xyz#", where $ and # are delimeters
-  Delimeters determined by isDelim
+  Sample input: "abcd$xyz#", where $ and # are delimeters of separate strings
+  Delimeters determined by the constants LOWER & UPPER
+  Use ithDelim() function to terminate the ith input
 
-  Primary methods:
+  Based upon code shared by John Zhang. Where he got it is anybody's guess.
+  Primary methods (written by me, not in the original code):
 
   occurrences(pattern):
     returns how many times pattern occurred across all input strings
 
-  longestRepeat(vector of strings, k)
+  longestRepeat(empty string vector, k)
     Let Q = substrings that appear multiple times and in >k input strings
-    method fills vector with longest such Q
+    this method fills vector with longest such Q
     returns length of such strings
 */
 
@@ -24,7 +26,6 @@
 #include <sstream>
 
 using namespace std;
-
 
 //text has characters in range [LOWER,UPPER]
 const char LOWER = 'a';
@@ -42,7 +43,7 @@ char ithDelim(int i){
 }
 
 struct SuffixTree {
-  //MUST DEFINE DELIMITERS OF GENERALIZED SUFFIX TREE
+
   bool isDelim(char c){
     return (c < LOWER) || (c > UPPER);
   }
