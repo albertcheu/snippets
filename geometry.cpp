@@ -2,14 +2,18 @@
 //or cpbook.net
 #include <cmath>
 #include <vector>
+#include <stack>
+#include <algorithm>
+#include <iostream>
+#include <cstdio>
 
-#define EPS 0.000000001;
 #define COLLINEAR 0
 #define LEFT 1
 #define RIGHT -1
 #define polygon vector<point>
 
 using namespace std;
+const double EPS = 0.000000001;
 
 bool equal(double a, double b) { return fabs(a-b) < EPS; }
 
@@ -23,6 +27,7 @@ struct point {
   double x,y;
   point();
   point(double _x, double _y);
+  point(pair<double,double> p);
   bool operator == (const point& o);
   bool operator< (const point& other);
   vec operator- (const point& other);
@@ -32,16 +37,19 @@ struct point {
 struct line {
   double a, b, c;
   line (const point& p1, const point& p2);
-  bool operator== (const line& other);
+  bool equivalent(const line& other) const;
+  bool operator== (const line& other) const;
   //are they parallel
-  bool operator|| (const line& other);
+  bool parallel(const line& other) const;
+  bool operator|| (const line& other) const;
 };
 
 //struct vec { int dx, dy;
 struct vec {
   double dx, dy, mag;
   vec(double x, double y);
-  vec(const point& from, const point& to) // convert 2 points to vector
+  vec(const point& from, const point& to); // convert 2 points to vector
+  vec(pair<double,double> p);
   vec normalize();
   vec operator+ (const vec& other);
   //scale
@@ -54,6 +62,9 @@ point::point() :x(0), y(0) {}
 point::point(double _x, double _y)
   :x(_x), y(_y)
 {}
+point::point(pair<double,double> p)
+  :x(p.first), y(p.second)
+{}
 bool point::operator == (const point& o)
 { return equal(x,o.x) && equal(y,o.y); }
 bool point::operator < (const point& other) {
@@ -62,7 +73,7 @@ bool point::operator < (const point& other) {
 }
 vec point::operator- (const point& other){ return vec(other,*this); }
 point point::operator+ (const vec& v){ return point(x+v.dx,y+v.dy); }
-double dist(const point& p1, const point& p2) {
+double distance(const point& p1, const point& p2) {
   return hypot(p1.x - p2.x, p1.y - p2.y);
 }
 
@@ -82,13 +93,21 @@ line::line (const point& p1, const point& p2) {
   }
 }
 
-bool line::operator== (const line& other) {
-  return (*this || other) && (fabs(c - other.c) < EPS);
-}
-
-bool line::operator|| (const line& other){
+bool line::parallel(const line& other) const {
   // check coefficient a + b
   return (fabs(a-other.a) < EPS) && (fabs(b-other.b) < EPS);
+}
+
+bool line::operator|| (const line& other) const {
+  return parallel(other);
+}
+
+bool line::equivalent(const line& other) const {
+  return parallel(other) && (fabs(c - other.c) < EPS);
+}
+
+bool line::operator== (const line& other) const {
+  return equivalent(other);
 }
 
 bool intersect(const line& l1, const line& l2, point& p) {
@@ -98,7 +117,7 @@ bool intersect(const line& l1, const line& l2, point& p) {
   if (l1 || l2) { return false; }
 
   // solve system of 2 linear algebraic equations with 2 unknowns
-  p.x = (double)(l2.b * l1.c - l1 b * l2.c) / (l2.a * l1.b - l1.a * l2.b);
+  p.x = (double)(l2.b * l1.c - l1.b * l2.c) / (l2.a * l1.b - l1.a * l2.b);
 
   // test for vertical line (avoid div by zero)
   if (fabs(l1.b) > EPS) { p.y = - (l1.a * p.x + l1.c) / l1.b; }
@@ -122,7 +141,10 @@ vec::vec(double deltaX, double deltaY)
 vec::vec(const point& from, const point& to)
   :vec(to.x - from.x, to.y - from.y)
 {}
-vec::normalize() { return vec(dx / mag, dy / mag); }
+vec::vec(pair<double,double> p)
+  :vec(p.first, p.second)
+{}
+vec vec::normalize() { return vec(dx / mag, dy / mag); }
 vec vec::operator+ (const vec & other){
   return vec(dx + other.dx, dy + other.dy);
 }
@@ -158,7 +180,7 @@ private:
   point pivot;
 public:
   LeftTurnCmp(const point& pivot) :pivot(pivot) {}
-  bool operator()(const point& a, const& point b){
+  bool operator()(const point& a, const point& b){
     if (turn(pivot, a, b) == COLLINEAR)
       return dist2(pivot, a) < dist2(pivot, b); // which one closer
     int d1x = a.x - pivot.x, d1y = a.y - pivot.y;
@@ -215,7 +237,7 @@ double determinant(polygon& p) {
 
 // area is half of the determinant and the result may be a non-integer
 double area(polygon& p)
-{ return fabs(determinant(p)) / 2.0); }
+{ return fabs(determinant(p)) / 2.0; }
 
 //n must be >= 3 for this method to work
 void getConvexHull(polygon& p, polygon& convexHull){
@@ -250,4 +272,10 @@ void getConvexHull(polygon& p, polygon& convexHull){
   }
 
   convexHull.pop_back(); // the last one is a duplicate of first one
+}
+
+int main(){
+  polygon p = {{0,0}, {5,0}, {0,5}, {2,7}, {5,5} };
+  orderByAngle(p);
+  cout << perimeter(p) << ' ' << area(p) << endl;
 }
