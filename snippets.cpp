@@ -94,3 +94,42 @@ ull modexp(ull a, ull e, ull p){
   ull x = (e%2)?(a%p):1;
   return ( ((recur*recur)%p) * x) % p;
 } 
+
+//Adapted from https://en.wikipedia.org/wiki/Levenshtein_distance
+int editDistance(const string& s, const string& t){
+  // degenerate cases
+  if (s == t) return 0;
+  if (s.size() == 0) return t.size();
+  if (t.size() == 0) return s.size();
+
+  // create two work vectors of integer distances
+  vi prev(t.size()+1);
+  vi cur(t.size()+1);
+
+  // initialize previous row of distances
+  // this row is A[0][i]: edit distance for an empty s
+  // the distance is just the number of characters to delete from t
+  for (int i = 0; i < prev.size(); i++) { prev[i] = i; }
+
+  for (int i = 0; i < s.size(); i++) {
+    // calculate current row distances from the previous row
+
+    // first element is A[i+1][0]
+    //   edit distance is delete (i+1) chars from s to match empty t
+    cur[0] = i + 1;
+
+    // use formula to fill in the rest of the row
+    for (int j = 1; j < cur.size(); j++) {
+      int replaceCost = prev[j-1] + ((s[i] == t[j-1]) ? 0 : 1);
+      int dropIth = prev[j] + 1;
+      int dropJth = cur[j-1] + 1;
+
+      cur[j] = min(replaceCost, min(dropJth, dropIth));
+
+    }
+
+    swap(prev, cur);
+  }
+
+  return prev.back();
+}

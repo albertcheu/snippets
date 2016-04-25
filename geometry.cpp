@@ -50,10 +50,18 @@ struct vec {
   vec(double x, double y);
   vec(const point& from, const point& to); // convert 2 points to vector
   vec(pair<double,double> p);
+
   vec normalize();
+
+  //give the vector pointing to the left
+  vec perpendicular();
+
+  //vector addition
   vec operator+ (const vec& other);
+
   //scale
   vec operator* (double s);
+
   //dot product
   double operator* (const vec& other);
 };
@@ -152,6 +160,9 @@ vec vec::operator* (double s){ return vec(s * dx, s * dy); }
 double vec::operator* (const vec & other){
   return dx * other.dx + dy * other.dy;
 }
+vec vec::perpendicular(){
+  return vec(-dy,dx);
+}
 
 //square of triangle area
 /*
@@ -174,42 +185,7 @@ int turn(const point& a, const point& b, const point& c) {
   return COLLINEAR; // a->B->C is a straight line, i.e. a, B, C are collinear
 }
 
-//important angle-sorting functor
-class LeftTurnCmp{
-private:
-  point pivot;
-public:
-  LeftTurnCmp(const point& pivot) :pivot(pivot) {}
-  bool operator()(const point& a, const point& b){
-    if (turn(pivot, a, b) == COLLINEAR)
-      return dist2(pivot, a) < dist2(pivot, b); // which one closer
-    int d1x = a.x - pivot.x, d1y = a.y - pivot.y;
-    int d2x = b.x - pivot.x, d2y = b.y - pivot.y;
-    return (atan2((double)d1y, (double)d1x)
-	    - atan2((double)d2y, (double)d2x)) < 0;
-  }
-};
-
-//Counterclockwise starting from bottom-most point
-void orderByAngle(polygon& p){
-  // first, find p0 = point with lowest Y and if tie: rightmost X
-  int lowestIndex = 0;
-  int n = p.size();
-
-  for (int i = 1; i < n; i++) {
-    if (p[i].y < p[lowestIndex].y ||
-	(p[i].y == p[lowestIndex].y && p[i].x > p[lowestIndex].x))
-      { lowestIndex = i; }
-  }
-
-  swap(p[0],p[lowestIndex]);
-
-  // second, sort points by angle w.r.t. lowest
-  LeftTurnCmp angle_cmp(p[0]);
-  sort(++p.begin(), p.end(), angle_cmp);
-}
-
-/* The following code assumes you have ordered the points! */
+/* The following code assumes CLOCKWISE or COUNTERCLOCKWISE ORDER! */
 
 double perimeter(polygon& p) {
   double result = 0.0;
@@ -238,6 +214,40 @@ double determinant(polygon& p) {
 // area is half of the determinant and the result may be a non-integer
 double area(polygon& p)
 { return fabs(determinant(p)) / 2.0; }
+
+//important angle-sorting functor for convex hull
+class LeftTurnCmp{
+private:
+  point pivot;
+public:
+  LeftTurnCmp(const point& pivot) :pivot(pivot) {}
+  bool operator()(const point& a, const point& b){
+    if (turn(pivot, a, b) == COLLINEAR)
+      return dist2(pivot, a) < dist2(pivot, b); // which one closer
+    int d1x = a.x - pivot.x, d1y = a.y - pivot.y;
+    int d2x = b.x - pivot.x, d2y = b.y - pivot.y;
+    return (atan2((double)d1y, (double)d1x)
+	    - atan2((double)d2y, (double)d2x)) < 0;
+  }
+};
+
+void orderByAngle(polygon& p){
+  // first, find p0 = point with lowest Y and if tie: rightmost X
+  int lowestIndex = 0;
+  int n = p.size();
+
+  for (int i = 1; i < n; i++) {
+    if (p[i].y < p[lowestIndex].y ||
+	(p[i].y == p[lowestIndex].y && p[i].x > p[lowestIndex].x))
+      { lowestIndex = i; }
+  }
+
+  swap(p[0],p[lowestIndex]);
+
+  // second, sort points by angle w.r.t. lowest
+  LeftTurnCmp angle_cmp(p[0]);
+  sort(++p.begin(), p.end(), angle_cmp);
+}
 
 //n must be >= 3 for this method to work
 void getConvexHull(polygon& p, polygon& convexHull){
