@@ -324,9 +324,12 @@ bool inPolygon(polygon& p, point& pt){
     point thisPoint = p[i];
     point nextPoint = p[(i+1)%p.size()];
 
-    if (rayIntersect(r, thisPoint, nextPoint, contact)) {
+    if (rayIntersect(r, ray(thisPoint, nextPoint), contact)) {
       edgesHit++;
     }
+
+    //point on edge is not in polygon
+    if (contact == pt) { return false; }
   }
 
   return (edgesHit % 2);
