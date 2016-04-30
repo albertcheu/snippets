@@ -18,6 +18,7 @@
 
 using namespace std;
 const double EPS = 0.000000001;
+const double PI = 3.141592654;
 
 bool equal(double a, double b) { return fabs(a-b) < EPS; }
 
@@ -51,6 +52,7 @@ struct line {
   //are they parallel
   bool parallel(const line& other) const;
   bool operator|| (const line& other) const;
+  bool has(const point& p) const;
 };
 
 //struct vec { int dx, dy;
@@ -131,6 +133,8 @@ bool line::equivalent(const line& other) const {
 bool line::operator== (const line& other) const {
   return equivalent(other);
 }
+
+bool line::has(const point& p) const { return equal(a*p.x + b*p.y + c, 0); }
 
 ray::ray(const point& p1, const point& p2)
   :line(p1,p2), origin(p1), dest(p2)
@@ -263,19 +267,25 @@ double determinant(polygon& p) {
 double area(polygon& p)
 { return fabs(determinant(p)) / 2.0; }
 
+
+double angle(point a, point pivot, point b){
+  return (atan2(a.y-pivot.y, a.x-pivot.x) - atan2(b.y-pivot.y, b.x-pivot.x));
+}
+
+
 //important angle-sorting functor for convex hull
-class LeftTurnCmp{
+class AngleCmp{
 private:
   point pivot;
 public:
-  LeftTurnCmp(const point& pivot) :pivot(pivot) {}
+  AngleCmp(const point& pivot) :pivot(pivot) {}
   bool operator()(const point& a, const point& b){
-    if (turn(pivot, a, b) == COLLINEAR)
+    
+    if (turn(pivot, a, b) == COLLINEAR) {
       return dist2(pivot, a) < dist2(pivot, b); // which one closer
-    int d1x = a.x - pivot.x, d1y = a.y - pivot.y;
-    int d2x = b.x - pivot.x, d2y = b.y - pivot.y;
-    return (atan2((double)d1y, (double)d1x)
-	    - atan2((double)d2y, (double)d2x)) < 0;
+    }
+
+    return angle(a,pivot,b) < 0;
   }
 };
 
@@ -293,8 +303,8 @@ void orderByAngle(polygon& p){
   swap(p[0],p[lowestIndex]);
 
   // second, sort points by angle w.r.t. lowest
-  LeftTurnCmp angle_cmp(p[0]);
-  sort(++p.begin(), p.end(), angle_cmp);
+  AngleCmp ac(p[0]);
+  sort(++p.begin(), p.end(), ac);
 }
 
 //n must be >= 3 for this method to work
@@ -334,8 +344,27 @@ void getConvexHull(polygon& p, polygon& convexHull){
 
 //ray-casting
 bool inPolygon(polygon& p, point& pt){
-  //ensure that we'll hit an edge by picking a midpoint
-  point alt((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
+  //stupid case
+  if (pt == p[0]) { return true; }
+
+  //pick arbitrary vertex u
+  point u = p[0];
+  point v = p[0];
+  double minAngle = DBL_MAX;
+
+  //find the vertex v s.t. (angle u-pt-v) is minimal
+  //this ensures there are no vertices in between
+  for(int i = 1; i < p.size(); i++){
+    //stupid case again
+    if (p[i] == pt) { return true; }
+    double theta = abs(angle(u,pt,p[i]));
+    if (theta < minAngle) {
+      minAngle = theta;
+      v = p[i];
+    }
+  }
+
+  point alt((u.x + v.x)/2, (u.y + v.y)/2);
   ray r(pt,alt);
 
   int edgesHit = 0;
