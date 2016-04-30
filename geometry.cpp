@@ -38,6 +38,7 @@ struct point {
   bool operator< (const point& other) const;
   vec operator- (const point& other);
   point operator+ (const vec& v);
+  friend ostream& operator<<(ostream& os, const point& pt);
 };
 bool sortPtsY(point a, point b){ 
   if (fabs(a.y - b.y) > EPS) return a.y < b.y;
@@ -99,6 +100,10 @@ vec point::operator- (const point& other){ return vec(other,*this); }
 point point::operator+ (const vec& v){ return point(x+v.dx,y+v.dy); }
 double distance(const point& p1, const point& p2) {
   return hypot(p1.x - p2.x, p1.y - p2.y);
+}
+ostream& operator<<(ostream& os, const point& pt){
+  os << '(' << pt.x << ',' << pt.y << ')';
+  return os;
 }
 
 line::line (const point& p1, const point& p2) {
@@ -206,14 +211,14 @@ int turn(const point& a, const point& b, const point& c) {
   return COLLINEAR; // a->B->C is a straight line, i.e. a, B, C are collinear
 }
 
-//useful for ray casting
-//a & b are endpoints on the line segment in question
-//assume that they are neither r.origin nor r.dest
-bool rayIntersect(const ray& r, point& a, point& b, point& p) {
-  line l(a,b);
-  if (intersect(r,l,p)){
+//for convenience, we use a ray to represent line segment
+bool rayIntersect(const ray& r, const ray& seg, point& p) {
+  if (intersect(r,seg,p)){
     point o = r.origin;
     point d = r.dest;
+
+    point a = seg.origin;
+    point b = seg.dest;
 
     //if we follow the ray's line and turn at the "dest" point to a
     int oda = turn(o,d,a);
@@ -224,6 +229,8 @@ bool rayIntersect(const ray& r, point& a, point& b, point& p) {
     //weird cases: pass thru an endpoint
     if (p == a) { return odb == turn(o,a,b); }
     if (p == b) { return oda == turn(o,b,a); }
+    //ray origin is on the segment's line
+    if (p == o) { return oda != odb; }
 
     //if we follow the ray's line and turn at the intersection point to a
     int opa = turn(o,p,a);
@@ -234,6 +241,19 @@ bool rayIntersect(const ray& r, point& a, point& b, point& p) {
     return oda == opa && oda != odb;
   }
 
+  return false;
+}
+
+//check if the lines are coincident AND the endpoints overlap
+bool segmentOverlap(ray& seg1, ray& seg2){
+  if (seg1 == seg2) {
+    point a = seg1.origin;
+    point b = seg1.dest;
+    point c = seg2.origin;
+    point d = seg2.dest;
+    return equal(distance(a,c)+distance(c,b), distance(a,b))
+      || equal(distance(c,a)+distance(a,d), distance(c,d));
+  }
   return false;
 }
 
@@ -270,6 +290,46 @@ double area(polygon& p)
 
 double angle(point a, point pivot, point b){
   return (atan2(a.y-pivot.y, a.x-pivot.x) - atan2(b.y-pivot.y, b.x-pivot.x));
+}
+
+//ray-casting
+bool inPolygon(polygon& p, point& pt){
+  //stupid case
+  if (pt == p[0]) { return false; }
+
+  //pick arbitrary vertex u
+  point u = p[0];
+  point v = p[0];
+  double minAngle = DBL_MAX;
+
+  //find the vertex v s.t. (angle u-pt-v) is minimal
+  //this ensures there are no vertices in between
+  for(int i = 1; i < p.size(); i++){
+    //stupid case again
+    if (p[i] == pt) { return false; }
+    double theta = abs(angle(u,pt,p[i]));
+    if (theta < minAngle) {
+      minAngle = theta;
+      v = p[i];
+    }
+  }
+
+  point alt((u.x + v.x)/2, (u.y + v.y)/2);
+  ray r(pt,alt);
+
+  int edgesHit = 0;
+
+  for(int i = 0; i < p.size(); i++){
+    point contact;
+    point thisPoint = p[i];
+    point nextPoint = p[(i+1)%p.size()];
+
+    if (rayIntersect(r, thisPoint, nextPoint, contact)) {
+      edgesHit++;
+    }
+  }
+
+  return (edgesHit % 2);
 }
 
 
@@ -340,46 +400,6 @@ void getConvexHull(polygon& p, polygon& convexHull){
   }
 
   convexHull.pop_back(); // the last one is a duplicate of first one
-}
-
-//ray-casting
-bool inPolygon(polygon& p, point& pt){
-  //stupid case
-  if (pt == p[0]) { return true; }
-
-  //pick arbitrary vertex u
-  point u = p[0];
-  point v = p[0];
-  double minAngle = DBL_MAX;
-
-  //find the vertex v s.t. (angle u-pt-v) is minimal
-  //this ensures there are no vertices in between
-  for(int i = 1; i < p.size(); i++){
-    //stupid case again
-    if (p[i] == pt) { return true; }
-    double theta = abs(angle(u,pt,p[i]));
-    if (theta < minAngle) {
-      minAngle = theta;
-      v = p[i];
-    }
-  }
-
-  point alt((u.x + v.x)/2, (u.y + v.y)/2);
-  ray r(pt,alt);
-
-  int edgesHit = 0;
-
-  for(int i = 0; i < p.size(); i++){
-    point contact;
-    point thisPoint = p[i];
-    point nextPoint = p[(i+1)%p.size()];
-
-    if (rayIntersect(r, thisPoint, nextPoint, contact)) {
-      edgesHit++;
-    }
-  }
-
-  return (edgesHit % 2);
 }
 
 void closestDist(vector<point> pts_x, int left, int right,
