@@ -5,7 +5,11 @@
 #include <stack>
 #include <algorithm>
 #include <iostream>
+#include <cfloat>
+
 #include <cstdio>
+#include <cstdlib>
+#include <ctime>
 
 #define COLLINEAR 0
 #define LEFT 1
@@ -20,6 +24,7 @@ bool equal(double a, double b) { return fabs(a-b) < EPS; }
 struct point;
 struct line;
 struct vec;
+struct ray;
 
 // use this whenever possible
 //struct point { int x, y
@@ -28,11 +33,15 @@ struct point {
   point();
   point(double _x, double _y);
   point(pair<double,double> p);
-  bool operator == (const point& o);
-  bool operator< (const point& other);
+  bool operator== (const point& o) const;
+  bool operator< (const point& other) const;
   vec operator- (const point& other);
   point operator+ (const vec& v);
 };
+bool sortPtsY(point a, point b){ 
+  if (fabs(a.y - b.y) > EPS) return a.y < b.y;
+  return a.x < b.x; 
+}
 
 struct line {
   double a, b, c;
@@ -66,6 +75,11 @@ struct vec {
   double operator* (const vec& other);
 };
 
+struct ray : public line {
+  point origin, dest;
+  ray (const point& p1, const point& p2);
+};
+
 point::point() :x(0), y(0) {}
 point::point(double _x, double _y)
   :x(_x), y(_y)
@@ -73,9 +87,9 @@ point::point(double _x, double _y)
 point::point(pair<double,double> p)
   :x(p.first), y(p.second)
 {}
-bool point::operator == (const point& o)
+bool point::operator== (const point& o) const
 { return equal(x,o.x) && equal(y,o.y); }
-bool point::operator < (const point& other) {
+bool point::operator< (const point& other) const{
   if (fabs(x - other.x) > EPS) return x < other.x;
   return y < other.y;
 }
@@ -118,6 +132,10 @@ bool line::operator== (const line& other) const {
   return equivalent(other);
 }
 
+ray::ray(const point& p1, const point& p2)
+  :line(p1,p2), origin(p1), dest(p2)
+{}
+
 bool intersect(const line& l1, const line& l2, point& p) {
   // all points same
   if (l1 == l2) { return false; }
@@ -133,7 +151,6 @@ bool intersect(const line& l1, const line& l2, point& p) {
 
   return true;
 }
-
 
 vec::vec(double deltaX, double deltaY)
   : dx(deltaX), dy(deltaY)
@@ -183,6 +200,37 @@ int turn(const point& a, const point& b, const point& c) {
   if (result > 0) return LEFT; // a->B->C is a left turn
 
   return COLLINEAR; // a->B->C is a straight line, i.e. a, B, C are collinear
+}
+
+//useful for ray casting
+//a & b are endpoints on the line segment in question
+//assume that they are neither r.origin nor r.dest
+bool rayIntersect(const ray& r, point& a, point& b, point& p) {
+  line l(a,b);
+  if (intersect(r,l,p)){
+    point o = r.origin;
+    point d = r.dest;
+
+    //if we follow the ray's line and turn at the "dest" point to a
+    int oda = turn(o,d,a);
+
+    //if we follow the ray's line and turn at the "dest" point to b
+    int odb = turn(o,d,b);
+
+    //weird cases: pass thru an endpoint
+    if (p == a) { return odb == turn(o,a,b); }
+    if (p == b) { return oda == turn(o,b,a); }
+
+    //if we follow the ray's line and turn at the intersection point to a
+    int opa = turn(o,p,a);
+
+    //if we cut through segment ab,
+    //turning to a at either d or p should be the same direction
+    //and turning to a should be different from turning to b
+    return oda == opa && oda != odb;
+  }
+
+  return false;
 }
 
 /* The following code assumes CLOCKWISE or COUNTERCLOCKWISE ORDER! */
@@ -282,6 +330,89 @@ void getConvexHull(polygon& p, polygon& convexHull){
   }
 
   convexHull.pop_back(); // the last one is a duplicate of first one
+}
+
+//ray-casting
+bool inPolygon(polygon& p, point& pt){
+  //ensure that we'll hit an edge by picking a midpoint
+  point alt((p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
+  ray r(pt,alt);
+
+  int edgesHit = 0;
+
+  for(int i = 0; i < p.size(); i++){
+    point contact;
+    point thisPoint = p[i];
+    point nextPoint = p[(i+1)%p.size()];
+
+    if (rayIntersect(r, thisPoint, nextPoint, contact)) {
+      edgesHit++;
+    }
+  }
+
+  return (edgesHit % 2);
+}
+
+void closestDist(vector<point> pts_x, int left, int right,
+		   vector<point> pts_y,
+		 point& a, point& b, double& minD){
+  if (left-right == 1) { return; }
+  if (left-right == 2) {
+    double d = distance(pts_x[left],pts_x[left+1]);
+    if (d < minD) {
+      a = pts_x[left];
+      b = pts_x[left+1];
+      minD = d;
+    }
+    return;
+  }
+  
+  //double ans = DBL_MAX;
+  
+  //recurse
+  int mid = (left+right)/2;
+  int mid_x = pts_x[mid].x;
+  closestDist(pts_x,left,mid,pts_y,a,b,minD);
+  closestDist(pts_x,mid,right,pts_y,a,b,minD);
+  
+  //make strip
+  vector<point> strip;
+  for(auto pt: pts_y){
+    if (pt.x > mid_x-minD && pt.x < mid_x+minD) { strip.push_back(pt); }
+  }
+
+  //check strip
+  for(int i = 0; i < strip.size(); i++){
+
+    //we'll only check from left side to right side
+    if (strip[i].x >= mid_x) { continue; }
+
+    for(int j = 0; j < 4; j++){
+      //don't go overboard
+      if (i+j >= strip.size()) { break; }
+
+      double d = distance(strip[i],strip[j]);
+      if (d < minD) {
+	minD = d;
+	a = strip[i];
+	b = strip[j];
+      }
+    }
+  }
+
+  return;
+}
+
+double closestDist(vector<point> pts, point& a, point& b){
+  sort(pts.begin(), pts.end());
+
+  vector<point> pts_y;
+  copy(pts.begin(), pts.end(), pts_y.begin());
+  sort(pts_y.begin(), pts_y.end(), sortPtsY);
+
+  double minD = DBL_MAX;
+  closestDist(pts,0,pts.size(),pts_y, a,b, minD);
+  return minD;
 }
 
 int main(){
