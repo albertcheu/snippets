@@ -40,10 +40,15 @@ struct point {
   point operator+ (const vec& v);
   friend ostream& operator<<(ostream& os, const point& pt);
 };
-bool sortPtsY(point a, point b){ 
-  if (fabs(a.y - b.y) > EPS) return a.y < b.y;
-  return a.x < b.x; 
-}
+
+struct SortPtsY{
+  SortPtsY(){}
+  bool operator()(point a, point b){ 
+    if (fabs(a.y - b.y) > EPS) return a.y < b.y;
+    return a.x < b.x; 
+  }  
+};
+
 
 struct line {
   double a, b, c;
@@ -405,32 +410,62 @@ void getConvexHull(polygon& p, polygon& convexHull){
   convexHull.pop_back(); // the last one is a duplicate of first one
 }
 
-void closestDist(vector<point> pts_x, int left, int right,
-		   vector<point> pts_y,
+
+void updateNeigh(map<point,point>& nearestNeigh,
+		 point& p1, point& p2, double d){
+  map<point,point>::iterator itr = nearestNeigh.find(p1);
+  if (itr == nearestNeigh.end()){
+    nearestNeigh[p1] = p2; 
+  }
+  else if (distance(p1,itr->second) > d) {
+    itr->second = p2;
+  }
+
+  itr = nearestNeigh.find(p2);
+  if (itr == nearestNeigh.end()){
+    nearestNeigh[p2] = p1; 
+  }
+  else if (distance(p2,itr->second) > d) {
+    itr->second = p1;
+  }
+}
+
+void closestDist(vector<point>& pts_x, int left, int right,
+		 vector<point>& pts_y, map<point,point>& nearestNeigh,
 		 point& a, point& b, double& minD){
-  if (left-right == 1) { return; }
-  if (left-right == 2) {
-    double d = distance(pts_x[left],pts_x[left+1]);
+  if (right-left == 1) { return; }
+  if (right-left == 2) {
+    point p1 = pts_x[left], p2 = pts_x[left+1];
+    double d = distance(p1,p2);
+    updateNeigh(nearestNeigh,p1,p2,d);
     if (d < minD) {
-      a = pts_x[left];
-      b = pts_x[left+1];
+      a = p1;
+      b = p2;
       minD = d;
     }
     return;
   }
   
-  //double ans = DBL_MAX;
-  
-  //recurse
+  //partition & recurse
   int mid = (left+right)/2;
-  int mid_x = pts_x[mid].x;
-  closestDist(pts_x,left,mid,pts_y,a,b,minD);
-  closestDist(pts_x,mid,right,pts_y,a,b,minD);
-  
-  //make strip
+  double mid_x = pts_x[mid].x+4*EPS;
+  vector<point>pts_y_half;
+
+  for(auto pt: pts_y) {
+    if (pt.x < mid_x) { pts_y_half.push_back(pt); }
+  }
+  closestDist(pts_x,left,mid,pts_y_half,nearestNeigh,a,b,minD);
+  pts_y_half.clear();
+  for(auto pt: pts_y) {
+    if (pt.x >= mid_x) { pts_y_half.push_back(pt); }
+  }
+  closestDist(pts_x,mid,right,pts_y_half,nearestNeigh,a,b,minD);
+  pts_y_half.clear();
+
+  //ready strip  
   vector<point> strip;
-  for(auto pt: pts_y){
-    if (pt.x > mid_x-minD && pt.x < mid_x+minD) { strip.push_back(pt); }
+  for(auto pt: pts_y) {
+    if (pt.x > mid_x - minD && pt.x <= mid_x + minD) { strip.push_back(pt); }
   }
 
   //check strip
@@ -439,15 +474,17 @@ void closestDist(vector<point> pts_x, int left, int right,
     //we'll only check from left side to right side
     if (strip[i].x >= mid_x) { continue; }
 
-    for(int j = 0; j < 4; j++){
+    for(int j = 1; j < 4; j++){
       //don't go overboard
       if (i+j >= strip.size()) { break; }
-
-      double d = distance(strip[i],strip[j]);
+      point p1 = strip[i], p2 = strip[i+j];
+      double d = distance(p1,p2);
+      updateNeigh(nearestNeigh,p1,p2,d);
       if (d < minD) {
 	minD = d;
-	a = strip[i];
-	b = strip[j];
+	a = p1;
+	b = p2;
+	break;
       }
     }
   }
@@ -455,17 +492,20 @@ void closestDist(vector<point> pts_x, int left, int right,
   return;
 }
 
-double closestDist(vector<point> pts, point& a, point& b){
+double closestDist(vector<point>& pts, map<point,point>& nearestNeigh,
+		   point& a, point& b){
   sort(pts.begin(), pts.end());
 
-  vector<point> pts_y;
+  vector<point> pts_y(pts.size());
   copy(pts.begin(), pts.end(), pts_y.begin());
-  sort(pts_y.begin(), pts_y.end(), sortPtsY);
+  sort(pts_y.begin(), pts_y.end(), SortPtsY());
 
   double minD = DBL_MAX;
-  closestDist(pts,0,pts.size(),pts_y, a,b, minD);
+  closestDist(pts,0,pts.size(),pts_y, nearestNeigh, a,b, minD);
+
   return minD;
 }
+
 
 int main(){
   polygon p = {{0,0}, {5,0}, {0,5}, {2,7}, {5,5} };
