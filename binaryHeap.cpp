@@ -104,11 +104,13 @@ public:
     bubbleUp(i);
   }
   
+  T peekMin(){ return h[1]; }
+
   T extractMin(){
     T ret = h[1];
 
     size_t i = 1;
-    m.erase(ret);
+    loc.erase(ret);
 
     T last = h.back();
     h[1] = last;
@@ -140,22 +142,49 @@ public:
   
 };
 
-class MaxHeap: public MinHeap{
+template <typename T>
+class MaxHeap: public MinHeap<T>{
 public:
-  MaxHeap() {
-    h.push_back(T());
-  }
+  MaxHeap()
+    :MinHeap<T>::MinHeap()
+  {}
 
-  void insert(T key){
-    MinHeap::insert(key*-1);
-  }
+  void insert(T key){ MinHeap<T>::insert(key*-1); }
   
-  T extractMax(){
-    return MinHeap::extractMin() * -1;
+  T extractMax() { return MinHeap<T>::extractMin() * -1; }
+
+  void changeKey(T oldKey, T newKey)
+  { MinHeap<T>::changeKey(oldKey*-1, newKey*-1); }
+
+  T peekMax(){ return MinHeap<T>::peekMin() * -1; }
+};
+
+//at end of function, map nodes to shortest-path distance from root
+//uses MinHeap to dynamically change weights in priority queue
+void dijkstra(AdjacencyList& adj, size_t root, vi& distance){
+  MinHeap<pair<int,size_t> > pq;
+  for(auto u: adj) {
+    pq.insert({INT_MAX,u});
+    distance.push_back(INT_MAX);
+  }
+  pq.changeKey({INT_MAX,root}, {0,root});
+  distance[root] = 0;
+
+  while(!pq.empty()){
+    pair<int,size_t> p = pq.extractMin();
+    int d = p.first;
+    size_t u = p.second;
+    for(auto neigh: adj[u]){
+      size_t v = p.first;
+      int uv = p.second;
+      if (d+uv < distance[v]) {
+	pq.changeKey({distance[v],v}, {d+uv,v});
+	distance[v] = d+uv;
+      }
+    }
   }
 
 }
-
 
 int main(){
   MinHeap<int> h;

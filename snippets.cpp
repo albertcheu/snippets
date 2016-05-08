@@ -1,6 +1,12 @@
 
 //map [0-9] to ['0'-'9']
-char num2char(int x) { return (char) x+48; }
+char num2char(int x) { return x + 48; }
+
+//map [0,25] to [A-Z]
+char num2upper(int x) { return x + 65; }
+
+//map [0,25] to [a-z]
+char num2lower(int x) { return x + 97; }
 
 //map ['0'-'9'] to [0-9]
 int char2num(char c) { return c - 48; }
@@ -12,7 +18,7 @@ int upper2num(char c) { return c - 65; }
 int lower2num(char c) { return c - 97; }
 
 //gosper's
-ull snoob(ull& x){
+void snoob(ull& x){
   ull y = x & -x;
   ull c = x + y;
   x = (((x ^ c) >> 2) / y) | c;
@@ -34,7 +40,8 @@ ll lcm(ll a, ll b, ll g){
   return x*y*g;
 }
 
-//Fenwick trees: dynamic subarray sum or max
+//Fenwick trees: dynamic subarray sum or prefix max
+//ONE-BASED indexing
 int sum(vi& v, int i) // Returns the sum from index 1 to i
 {
   int sum = 0;
@@ -48,7 +55,7 @@ int sum(vi& v, int i) // Returns the sum from index 1 to i
 void add(vi& v, int i, int k) // Adds k to element with index i
 {
   while (i < SIZE) {
-    v[i] += k;//A[i] = max(A[i],k)
+    v[i] += k;//v[i] = max(v[i],k)
     i += i & -i;
   }
 }
@@ -84,9 +91,8 @@ void getPrimes(int r, vi& primes, set<int>& primeSet){
 }
 
 //Repeated squaring
-//(a^e) mod p
+//(a^e) = (a^(e/2))^2 * a^(e%2)
 ull modexp(ull a, ull e, ull p){
-  //cout << a << ' ' << p << endl;
   if (e == 0) { return 1; }
   if (e == 1) { return a%p; }
 
@@ -132,4 +138,42 @@ int editDistance(const string& s, const string& t){
   }
 
   return prev.back();
+}
+
+//calculate the nth number mod p in a fibonacci sequence:  fib(n)%p
+int fastFib(int n,int p) {
+  long long a[2][2]={{1,1},{1,0}};
+  long long b[2][2]={{1,0},{0,1}};
+  long long c[2][2];
+  while(n) {
+
+    //multiply matrix a and b
+    if (n%2) {
+      for(int i=0;i<2;i++)
+	for(int j=0;j<2;j++)
+	  c[i][j]=0;
+      for(int i=0;i<2;i++)
+	for(int j=0;j<2;j++)
+	  for(int k=0;k<2;k++)
+	    c[i][j]=(c[i][j]+a[i][k]*b[k][j])%p;
+      for(int i=0;i<2;i++)
+	for(int j=0;j<2;j++)
+	  b[i][j]=c[i][j];
+    }
+
+    /**multiply matrix a and a*/
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+	c[i][j]=0;
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+	for(int k=0;k<2;k++)
+	  c[i][j]=(c[i][j]+a[i][k]*a[k][j])%p;
+    for(int i=0;i<2;i++)
+      for(int j=0;j<2;j++)
+	a[i][j]=c[i][j];
+    n>>=1;
+  }
+
+  return (int)b[0][0];
 }

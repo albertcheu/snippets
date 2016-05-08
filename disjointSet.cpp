@@ -43,3 +43,31 @@ public:
   }
 
 };
+
+//n nodes
+//pq entries map (-weight) to (edge number)
+//ith edge contains (u,v)
+int kruskal(int n, priority_queue<pair<int,size_t> >& pq,
+	    vector<pair<size_t,size_t> >& edges){
+  int w = 0;
+  DisjointSet ds(n);
+  while(pq.size()){
+    pair<int,size_t> p = pq.top();
+    pq.pop();
+
+    size_t e = p.second;
+    pair<size_t,size_t> edge = edges[e];
+    size_t u = edge.first;
+    size_t v = edge.second;
+
+    size_t uRoot = ds.find(u);
+    size_t vRoot = ds.find(v);
+    if (uRoot != vRoot){
+      ds.unionSets(uRoot,vRoot);
+      w += -1 * p.first;
+    }
+
+  }
+
+  return w;
+}
