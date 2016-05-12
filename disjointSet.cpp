@@ -47,12 +47,15 @@ public:
 //n nodes
 //pq entries map (-weight) to (edge number)
 //ith edge contains (u,v)
-int kruskal(int n, priority_queue<pair<int,size_t> >& pq,
-	    vector<pair<size_t,size_t> >& edges){
-  int w = 0;
+//returns tree weight and fills vector with treeEdges
+double kruskal(int n, priority_queue<pair<double,size_t> >& pq,
+	    vector<pair<size_t,size_t> >& edges,
+	    vector<pair<size_t,size_t> >& treeEdges
+	    ){
+  double w = 0;
   DisjointSet ds(n);
   while(pq.size()){
-    pair<int,size_t> p = pq.top();
+    pair<double,size_t> p = pq.top();
     pq.pop();
 
     size_t e = p.second;
@@ -60,9 +63,10 @@ int kruskal(int n, priority_queue<pair<int,size_t> >& pq,
     size_t u = edge.first;
     size_t v = edge.second;
 
-    size_t uRoot = ds.find(u);
-    size_t vRoot = ds.find(v);
+    size_t uRoot = ds.findSet(u);
+    size_t vRoot = ds.findSet(v);
     if (uRoot != vRoot){
+      treeEdges.push_back(edge);
       ds.unionSets(uRoot,vRoot);
       w += -1 * p.first;
     }

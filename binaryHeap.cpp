@@ -159,15 +159,16 @@ public:
   T peekMax(){ return MinHeap<T>::peekMin() * -1; }
 };
 
+
 //at end of function, map nodes to shortest-path distance from root
 //uses MinHeap to dynamically change weights in priority queue
 void dijkstra(AdjacencyList& adj, size_t root, vi& distance){
   MinHeap<pair<int,size_t> > pq;
-  for(auto u: adj) {
-    pq.insert({INT_MAX,u});
-    distance.push_back(INT_MAX);
+  repeat(u,0,adj.size()){
+    pq.insert({INF,u});
+    distance.push_back(INF);
   }
-  pq.changeKey({INT_MAX,root}, {0,root});
+  pq.changeKey({INF,root}, {0,root});
   distance[root] = 0;
 
   while(!pq.empty()){
@@ -175,8 +176,8 @@ void dijkstra(AdjacencyList& adj, size_t root, vi& distance){
     int d = p.first;
     size_t u = p.second;
     for(auto neigh: adj[u]){
-      size_t v = p.first;
-      int uv = p.second;
+      size_t v = neigh.first;
+      int uv = neigh.second;
       if (d+uv < distance[v]) {
 	pq.changeKey({distance[v],v}, {d+uv,v});
 	distance[v] = d+uv;
