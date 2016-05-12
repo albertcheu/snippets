@@ -1,58 +1,42 @@
-void tarjanRec(AdjacencyList& adj, int u,
-	       int& group, vi& node2group, vi& node2lowgroup,
-	       vector<bool>& onStack, stack<int>& s,
-	       vi& rep){
-  node2group[u] = group;
-  node2lowgroup[u] = group;
-  group++;
 
-  s.push_back(u);
-  onStack[u] = true;
-
-  for(auto p: adj[u]){
-    int v = p.first;
-    if (node2group[v] == -1) {
-      tarjanRec(adj,v,group,node2group,node2lowgroup,onStack,s,rep);
-      node2lowgroup[u] = min(node2lowgroup[u],node2lowgroup[v]);
-    }
-    else if (onStack[v]) {
-      node2lowgroup[u] = min(node2lowgroup[u],node2group[v]);
-    }
-
+//Based on NYU codebook
+void tarjanRec (AdjacencyList& adj, int i,
+		vi& visited, vi& low, int& t,
+		stack<int>& s,
+		vi& sccNum, int& scc) {
+  if (visited[i]) { return; }
+  t++;
+  visited[i] = low[i] = t;
+  s.push(i);
+  for(auto p: adj[i]){
+    tarjanRec(adj,p.first,visited,low,t,s,sccNum,scc);
+    low[i] = min(low[i],low[p.first]);
   }
 
-  if (node2group[u] == node2lowgroup[u]) {
-    rep.push_back(u);
-
-    int v = s.back();
-    while(u != v){
-      s.pop_back();
-      onStack[v] = false;
-      v = s.back();
+  if (low[i] == visited[i]){
+    while(true){
+      int k = s.top();
+      s.pop();
+      sccNum[k] = scc;
+      low[k] = INT_MAX;
+      if (k == i) { break; }
     }
-
+    scc++;
   }
 
 }
 
-//at end, rep contains one node for each scc
-void tarjan(AdjacencyList& adj, vi& rep){
-  int group = 0;
-  
-  vi node2group, node2lowgroup;
+//returns the number of connected components
+//sccNum maps node to scc (the "group's number")
+int tarjan(AdjacencyList& adj, vi& sccNum){
+  size_t n = adj.size();
+
+  int t = 0;
+  int scc = 0;
+  vi visited(n), low(n);
   stack<int> s;
-  vector<bool> onStack;
-  for(int u = 0; u < adj.size(); u++){
-    node2group.push_back(-1);
-    node2lowgroup.push_back(-1);
-    onStack.push_back(false);
-  }
-  
 
-  for(int u = 0; u < adj.size(); u++){
-    if (node2group[u] == -1) {
-      tarjanRec(adj,u,node2group,node2lowgroup,onStack,s,rep);
-    }
-  }
+  repeat(i,n) { tarjanRec(adj,i,visited,low,t,s,sccNum,scc); }
 
+  return scc;
 }
