@@ -217,6 +217,14 @@ int turn(const point& a, const point& b, const point& c) {
 }
 
 //for convenience, we use a ray to represent line segment
+bool segmentHas(const ray& seg, const point& p){
+  return seg.has(p) &&
+    equal(distance(seg.origin,p)+distance(p,seg.dest), 
+	  distance(seg.origin,seg.dest));
+}
+
+//for convenience, we use a ray to represent line segment
+//precondition: you checked that r's origin isn't a seg endpoint
 bool rayIntersect(const ray& r, const ray& seg, point& p) {
   if (intersect(r,seg,p)){
     point o = r.origin;
@@ -231,11 +239,12 @@ bool rayIntersect(const ray& r, const ray& seg, point& p) {
     //if we follow the ray's line and turn at the "dest" point to b
     int odb = turn(o,d,b);
 
-    //weird cases: pass thru an endpoint
-    if (p == a) { return odb == turn(o,a,b); }
-    if (p == b) { return oda == turn(o,b,a); }
+    //weird cases
     //ray origin is on the segment's line
     if (p == o) { return oda != odb; }
+    //pass thru an endpoint
+    if (p == a) { return odb == turn(o,a,b); }
+    if (p == b) { return oda == turn(o,b,a); }    
 
     //if we follow the ray's line and turn at the intersection point to a
     int opa = turn(o,p,a);
@@ -297,50 +306,6 @@ double angle(point a, point pivot, point b){
   return (atan2(a.y-pivot.y, a.x-pivot.x) - atan2(b.y-pivot.y, b.x-pivot.x));
 }
 
-//ray-casting
-bool inPolygon(polygon& p, point& pt){
-  //stupid case
-  if (pt == p[0]) { return false; }
-
-  //pick arbitrary vertex u
-  point u = p[0];
-  point v = p[0];
-  double minAngle = DBL_MAX;
-
-  //find the vertex v s.t. (angle u-pt-v) is minimal
-  //this ensures there are no vertices in between
-  for(int i = 1; i < p.size(); i++){
-    //stupid case again
-    if (p[i] == pt) { return false; }
-    double theta = abs(angle(u,pt,p[i]));
-    if (theta < minAngle) {
-      minAngle = theta;
-      v = p[i];
-    }
-  }
-
-  point alt((u.x + v.x)/2, (u.y + v.y)/2);
-  ray r(pt,alt);
-
-  int edgesHit = 0;
-
-  for(int i = 0; i < p.size(); i++){
-    point contact;
-    point thisPoint = p[i];
-    point nextPoint = p[(i+1)%p.size()];
-
-    if (rayIntersect(r, ray(thisPoint, nextPoint), contact)) {
-      edgesHit++;
-    }
-
-    //point on edge is not in polygon
-    if (contact == pt) { return false; }
-  }
-
-  return (edgesHit % 2);
-}
-
-
 //important angle-sorting functor for convex hull
 class AngleCmp{
 private:
@@ -373,6 +338,48 @@ void orderByAngle(polygon& p){
   // second, sort points by angle w.r.t. lowest
   AngleCmp ac(p[0]);
   sort(++p.begin(), p.end(), ac);
+}
+
+//ray-casting
+//points ON the boundary are NOT considered to be on the INside
+bool inPolygon(polygon& p, point& pt){
+  vector<ray> edges;
+  repeat(i,0,p.size()){
+    if (pt == p[i]) { return false; }
+    ray edge(p[i],p[(i+1)%p.size()]);
+    if (segmentHas(edge,pt)) { return false; }
+    edges.push_back(edge);
+  }
+
+  AngleCmp ac(pt);
+  sort(p.begin(), p.end(), ac);
+  //cout << p << endl;
+
+  point u = p[0], v= p[1];
+  repeat(i,0,p.size()){
+    double theta = fabs(angle(p[i],pt,p[(i+1)%p.size()]));
+    //cout << theta << endl;
+    if (theta < PI/2 && theta > PI/10) {
+      //cout << theta << endl;
+      u = p[i];
+      v = p[(i+1)%p.size()];
+      break;
+    }
+  }
+
+  //there are no vertices in between u and v
+  //so it is safe to cast a ray between them!
+  point alt((u.x + v.x)/2, (u.y + v.y)/2);
+  //cout << alt << endl;
+  ray r(pt,alt);
+
+  //count
+  int edgesHit = 0;
+  for(auto edge: edges) {
+    point contact;
+    if (rayIntersect(r, edge, contact)) { edgesHit++; }
+  }
+  return (edgesHit % 2);
 }
 
 //n must be >= 3 for this method to work
